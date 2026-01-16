@@ -1,0 +1,31 @@
+# Build artifacts
+build/
+out/
+.vs/
+.vscode/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+
+# MSVC
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.exe
+*.dll
+*.lib
+*.exp
+
+# Clang/GCC
+*.o
+*.a
+*.so
+*.dylib
+
+# OS junk
+Thumbs.db
+Desktop.ini
+

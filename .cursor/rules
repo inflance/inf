@@ -1,0 +1,98 @@
+# InfMVS 项目规则
+
+## 项目概述
+
+InfMVS 是一个模块化的 C++ MVS（Multi-View Stereo）重建工具库，专注于高性能 3D 重建流水线。
+
+## 架构设计
+
+### 模块划分（DLL 库）
+
+| 模块 | 职责 | 依赖 |
+|------|------|------|
+| **InfCore** | 基础设施：数学类型、内存管理、日志、错误处理 | - |
+| **InfIO** | I/O 层：COLMAP/MVS 格式读写、图像加载 | InfCore |
+| **InfPointCloud** | 点云处理：滤波、配准、法向估计 | InfCore |
+| **InfMesh** | 网格处理：数据结构、简化、细分、修复 | InfCore, InfPointCloud |
+| **InfTexture** | 纹理处理：UV 展开、纹理映射、Atlas 生成 | InfCore, InfMesh |
+| **InfMeshPipeline** | 完整流水线：端到端重建、批处理 | 所有模块 |
+
+### 目录结构
+
+```
+InfMVS/
+├── modules/
+│   ├── InfCore/           # 基础库
+│   │   ├── CMakeLists.txt
+│   │   ├── core.hpp       # 内部实现（hpp/cpp 放一起）
+│   │   ├── core.cpp
+│   │   └── InfCore.hpp    # 公开接口（只暴露必要的）
+│   ├── InfIO/             # I/O 库
+│   ├── InfPointCloud/     # 点云库
+│   ├── InfMesh/           # 网格库
+│   ├── InfTexture/        # 纹理库
+│   └── InfMeshPipeline/   # 流水线库
+├── apps/                  # CLI 应用
+├── tests/                 # 测试
+├── cmake/                 # CMake 模块
+├── vcpkg.json             # vcpkg 清单
+└── CMakeLists.txt         # 根 CMake
+```
+
+### 模块文件组织原则
+
+1. **内部实现**: `snake_case.hpp` + `snake_case.cpp` 放在同一目录（文件名不带模块前缀）
+2. **公开接口**: `ModuleName.hpp` 作为对外唯一入口，只暴露必要的 API
+3. **头文件保护**: 内部头文件不对外暴露，通过公开接口聚合
+
+## 技术栈
+
+- **语言**: C++20
+- **构建**: CMake 3.20+
+- **包管理**: vcpkg 清单模式
+- **核心依赖**: Eigen3, OpenCV, spdlog, fmt
+
+## 编码规范
+
+### 命名约定
+
+- 文件名: `snake_case.hpp` / `snake_case.cpp`
+- 类型名: `PascalCase`
+- 函数名: `lower_snake_case`
+- 局部变量/参数: `snake_case`
+- 私有成员: `snake_case_` (尾部下划线)
+- 常量: `kPascalCase`
+- 宏: `INFMVS_UPPER_CASE`
+
+### 代码风格
+
+1. **函数式优先**: 纯函数、少副作用、不可变优先
+2. **RAII**: 所有资源必须 RAII 管理
+3. **零拷贝**: 优先使用 `std::span`、`std::string_view`
+4. **const 正确性**: 参数和成员函数尽量 const
+
+### 模块导出
+
+每个模块通过 `INFXXX_API` 宏控制符号导出：
+
+```cpp
+#ifdef INFCORE_EXPORTS
+  #define INFCORE_API __declspec(dllexport)
+#else
+  #define INFCORE_API __declspec(dllimport)
+#endif
+```
+
+## 开发工作流
+
+1. 修改前先扫描相关代码，列出复用的模块
+2. 实现方案 3-6 条，强调数据流/资源流
+3. 输出最小 diff
+4. 提供编译验证方式
+5. 可调参数集中管理
+
+## 测试要求
+
+- 每个模块有独立测试
+- 使用 CTest 集成
+- 覆盖核心功能的单元测试

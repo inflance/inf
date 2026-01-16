@@ -1,0 +1,46 @@
+{
+  "name": "infmvs",
+  "version": "0.1.0",
+  "description": "Modular C++ MVS reconstruction library",
+  "homepage": "https://github.com/user/InfMVS",
+  "license": "MIT",
+  "supports": "windows | linux | osx",
+  "dependencies": [
+    {
+      "name": "eigen3",
+      "version>=": "3.4.0"
+    },
+    {
+      "name": "spdlog",
+      "version>=": "1.12.0"
+    },
+    {
+      "name": "fmt",
+      "version>=": "10.0.0"
+    },
+    {
+      "name": "opencv4",
+      "default-features": false,
+      "features": ["core", "imgcodecs", "imgproc"]
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.0"
+    }
+  ],
+  "features": {
+    "cuda": {
+      "description": "Enable CUDA acceleration",
+      "dependencies": []
+    },
+    "tests": {
+      "description": "Build tests",
+      "dependencies": [
+        {
+          "name": "gtest",
+          "version>=": "1.14.0"
+        }
+      ]
+    }
+  }
+}
