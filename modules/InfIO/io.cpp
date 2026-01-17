@@ -23,19 +23,19 @@ namespace inf::io {
 namespace {
 
 [[nodiscard]] core::Error file_not_found_error(const std::filesystem::path& path) {
-    return {core::ErrorCode::kFileNotFound, "File not found: " + path.string()};
+    return {core::ErrorCode::FileNotFound, "File not found: " + path.string()};
 }
 
 [[nodiscard]] core::Error parse_error(const std::string& msg) {
-    return {core::ErrorCode::kParseError, msg};
+    return {core::ErrorCode::ParseError, msg};
 }
 
 [[nodiscard]] core::Error invalid_argument_error(const std::string& msg) {
-    return {core::ErrorCode::kInvalidArgument, msg};
+    return {core::ErrorCode::InvalidArgument, msg};
 }
 
 [[nodiscard]] core::Error unsupported_format_error(const std::filesystem::path& path) {
-    return {core::ErrorCode::kUnsupportedFormat, "Unsupported format: " + path.string()};
+    return {core::ErrorCode::UnsupportedFormat, "Unsupported format: " + path.string()};
 }
 
 [[nodiscard]] bool is_comment_or_empty(const std::string& line) {
@@ -519,7 +519,7 @@ core::Result<core::SparseModel> read_colmap(const std::filesystem::path& model_d
     }
 
     return core::unexpected(core::Error{
-        core::ErrorCode::kFileNotFound,
+        core::ErrorCode::FileNotFound,
         "No valid COLMAP model found in: " + model_dir.string()
     });
 }

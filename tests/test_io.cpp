@@ -127,7 +127,7 @@ TEST(InfIO, ReadColmapTextPoints3D) {
 TEST(InfIO, ReadColmapTextNotFound) {
     auto result = inf::io::read_colmap_text("nonexistent_dir");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code, inf::core::ErrorCode::kFileNotFound);
+    EXPECT_EQ(result.error().code, inf::core::ErrorCode::FileNotFound);
 }
 
 // ============================================================================
@@ -165,7 +165,7 @@ TEST(InfIO, ReadColmapBinaryCameras) {
 TEST(InfIO, ReadColmapBinaryNotFound) {
     auto result = inf::io::read_colmap_binary("nonexistent_dir");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code, inf::core::ErrorCode::kFileNotFound);
+    EXPECT_EQ(result.error().code, inf::core::ErrorCode::FileNotFound);
 }
 
 // ============================================================================
@@ -187,7 +187,7 @@ TEST(InfIO, ReadColmapAutoDetect) {
 TEST(InfIO, ReadColmapAutoDetectNotFound) {
     auto result = inf::io::read_colmap("nonexistent_dir");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code, inf::core::ErrorCode::kFileNotFound);
+    EXPECT_EQ(result.error().code, inf::core::ErrorCode::FileNotFound);
 }
 
 // ============================================================================
@@ -242,7 +242,7 @@ TEST(InfIO, ReadPlyMesh) {
 TEST(InfIO, ReadPlyMeshNotFound) {
     auto result = inf::io::read_ply_mesh("nonexistent.ply");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code, inf::core::ErrorCode::kFileNotFound);
+    EXPECT_EQ(result.error().code, inf::core::ErrorCode::FileNotFound);
 }
 
 TEST(InfIO, WritePlyMeshBinary) {
@@ -318,7 +318,7 @@ TEST(InfIO, ReadPointCloud) {
 TEST(InfIO, ReadPointCloudNotFound) {
     auto result = inf::io::read_point_cloud("nonexistent.ply");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().code, inf::core::ErrorCode::kFileNotFound);
+    EXPECT_EQ(result.error().code, inf::core::ErrorCode::FileNotFound);
 }
 
 TEST(InfIO, WritePointCloudPlyBinary) {

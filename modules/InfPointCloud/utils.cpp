@@ -5,7 +5,7 @@ namespace inf::pc {
 
 namespace {
 core::Unexpected<core::Error> err(const char* msg) {
-    return core::unexpected(core::Error{core::ErrorCode::kInvalidArgument, msg});
+    return core::unexpected(core::Error{core::ErrorCode::InvalidArgument, msg});
 }
 }
 

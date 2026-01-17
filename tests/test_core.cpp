@@ -14,7 +14,7 @@ TEST(InfCore, Version)
 TEST(InfCore, ErrorDefault) {
     inf::core::Error err;
     EXPECT_TRUE(err.ok());
-    EXPECT_EQ(err.code, inf::core::ErrorCode::kSuccess);
+    EXPECT_EQ(err.code, inf::core::ErrorCode::Success);
 }
 
 // ============================================================================

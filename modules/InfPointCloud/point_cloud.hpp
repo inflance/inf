@@ -66,6 +66,18 @@ struct PointCloudStats {
 };
 
 [[nodiscard]] INFPOINTCLOUD_API core::Result<PointCloud> voxel_downsample(const PointCloud& cloud, float voxel_size);
+/// @brief 体素降采样到逼近目标点数（通过二分查找 voxel_size）
+/// @param cloud 输入点云
+/// @param target_count 目标点数（<= cloud.size()）
+/// @param voxel_size_out 输出实际使用的 voxel_size（可为 nullptr）
+/// @param rel_tol 相对误差容忍度（例如 0.05 表示允许 5% 偏差提前停止）
+/// @param max_iters 二分查找最大迭代次数
+[[nodiscard]] INFPOINTCLOUD_API core::Result<PointCloud> voxel_downsample_to_target(
+    const PointCloud& cloud,
+    size_t target_count,
+    float* voxel_size_out = nullptr,
+    float rel_tol = 0.05f,
+    int max_iters = 20);
 [[nodiscard]] INFPOINTCLOUD_API core::Result<PointCloud> random_downsample(const PointCloud& cloud, size_t target_count, uint32_t seed = 0);
 [[nodiscard]] INFPOINTCLOUD_API core::Result<PointCloud> uniform_downsample(const PointCloud& cloud, float min_distance);
 [[nodiscard]] INFPOINTCLOUD_API core::Result<PointCloud> grid_downsample(const PointCloud& cloud, size_t step);
@@ -87,6 +99,18 @@ INFPOINTCLOUD_API void orient_normals_towards_viewpoint(PointCloud& cloud, const
 [[nodiscard]] INFPOINTCLOUD_API core::Result<PointCloud> from_sparse_model(const core::SparseModel& model, size_t min_track_length = 3);
 [[nodiscard]] INFPOINTCLOUD_API core::Result<PointCloud> merge_clouds(const std::vector<PointCloud>& clouds, float merge_distance = 0.0f);
 [[nodiscard]] INFPOINTCLOUD_API PointCloudStats compute_stats(const PointCloud& cloud);
+
+struct AverageNeighborDistanceParams {
+    int k_neighbors = 1;            // 平均最近的 k 个邻居（不包含自身），>=1
+    size_t sample_count = 50000;    // 抽样点数（0 或 >= cloud.size() 表示全量）
+    uint32_t seed = 1;              // 0=随机种子
+};
+
+/// @brief 计算点云的平均邻域距离（kNN，默认抽样）
+/// @note 返回的是“平均最近邻距离”（单位与点云坐标一致），常用于估计点间距/设置 epsilon 等。
+[[nodiscard]] INFPOINTCLOUD_API core::Result<float> compute_average_neighbor_distance(
+    const PointCloud& cloud,
+    const AverageNeighborDistanceParams& params = {});
 
 [[nodiscard]] INFPOINTCLOUD_API core::Vec3f compute_centroid(const PointCloud& cloud);
 [[nodiscard]] INFPOINTCLOUD_API PointCloud extract_by_indices(const PointCloud& cloud, const std::vector<size_t>& indices);

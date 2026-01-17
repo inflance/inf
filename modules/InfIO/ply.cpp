@@ -44,12 +44,12 @@ namespace inf::io
 
 		[[nodiscard]] core::Error file_error(const std::filesystem::path& path, const std::string& msg)
 		{
-			return {core::ErrorCode::kFileNotFound, msg + ": " + path.string()};
+			return {core::ErrorCode::FileNotFound, msg + ": " + path.string()};
 		}
 
 		[[nodiscard]] core::Error parse_error(const std::string& msg)
 		{
-			return {core::ErrorCode::kParseError, msg};
+			return {core::ErrorCode::ParseError, msg};
 		}
 
 		// ============================================================================
@@ -472,10 +472,29 @@ INFMVS_OMP_PARALLEL_FOR
 		}
 		else
 		{
-			// Binary
-			size_t point_size = 3 * sizeof(float);
-			if (has_normals) point_size += 3 * sizeof(float);
-			if (has_colors) point_size += color_is_float ? 3 * sizeof(float) : 3 * sizeof(uint8_t);
+			// Binary: 根据 header 计算真实的 point_size 和属性偏移
+			// 支持有额外属性的 PLY 文件（如 3DGS 格式）
+			size_t point_size = 0;
+			size_t offset_x = 0, offset_y = 0, offset_z = 0;
+			size_t offset_nx = 0, offset_ny = 0, offset_nz = 0;
+			size_t offset_r = 0, offset_g = 0, offset_b = 0;
+			
+			for (const auto& prop : vertex_elem->properties) {
+				size_t prop_size = type_size(prop.type);
+				
+				// 记录需要的属性偏移
+				if (prop.name == "x") offset_x = point_size;
+				else if (prop.name == "y") offset_y = point_size;
+				else if (prop.name == "z") offset_z = point_size;
+				else if (prop.name == "nx" || prop.name == "normal_x") offset_nx = point_size;
+				else if (prop.name == "ny" || prop.name == "normal_y") offset_ny = point_size;
+				else if (prop.name == "nz" || prop.name == "normal_z") offset_nz = point_size;
+				else if (prop.name == "red" || prop.name == "r") offset_r = point_size;
+				else if (prop.name == "green" || prop.name == "g") offset_g = point_size;
+				else if (prop.name == "blue" || prop.name == "b") offset_b = point_size;
+				
+				point_size += prop_size;
+			}
 
 			std::vector<char> buffer(num_points * point_size);
 			file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
@@ -487,25 +506,19 @@ INFMVS_OMP_PARALLEL_FOR
 INFMVS_OMP_PARALLEL_FOR
 			for (int64_t i = 0; i < static_cast<int64_t>(num_points); ++i)
 			{
-				const char* ptr = buffer.data() + i * point_size;
+				const char* base = buffer.data() + i * point_size;
 				float x, y, z;
-				std::memcpy(&x, ptr, sizeof(float));
-				ptr += sizeof(float);
-				std::memcpy(&y, ptr, sizeof(float));
-				ptr += sizeof(float);
-				std::memcpy(&z, ptr, sizeof(float));
-				ptr += sizeof(float);
+				std::memcpy(&x, base + offset_x, sizeof(float));
+				std::memcpy(&y, base + offset_y, sizeof(float));
+				std::memcpy(&z, base + offset_z, sizeof(float));
 				result.positions[i] = core::Vec3f(x, y, z);
 
 				if (has_normals)
 				{
 					float nx, ny, nz;
-					std::memcpy(&nx, ptr, sizeof(float));
-					ptr += sizeof(float);
-					std::memcpy(&ny, ptr, sizeof(float));
-					ptr += sizeof(float);
-					std::memcpy(&nz, ptr, sizeof(float));
-					ptr += sizeof(float);
+					std::memcpy(&nx, base + offset_nx, sizeof(float));
+					std::memcpy(&ny, base + offset_ny, sizeof(float));
+					std::memcpy(&nz, base + offset_nz, sizeof(float));
 					result.normals[i] = core::Vec3f(nx, ny, nz);
 				}
 				if (has_colors)
@@ -513,21 +526,17 @@ INFMVS_OMP_PARALLEL_FOR
 					if (color_is_float)
 					{
 						float r, g, b;
-						std::memcpy(&r, ptr, sizeof(float));
-						ptr += sizeof(float);
-						std::memcpy(&g, ptr, sizeof(float));
-						ptr += sizeof(float);
-						std::memcpy(&b, ptr, sizeof(float));
+						std::memcpy(&r, base + offset_r, sizeof(float));
+						std::memcpy(&g, base + offset_g, sizeof(float));
+						std::memcpy(&b, base + offset_b, sizeof(float));
 						result.colors[i] = core::Vec3f(r, g, b);
 					}
 					else
 					{
 						uint8_t r, g, b;
-						std::memcpy(&r, ptr, sizeof(uint8_t));
-						ptr += sizeof(uint8_t);
-						std::memcpy(&g, ptr, sizeof(uint8_t));
-						ptr += sizeof(uint8_t);
-						std::memcpy(&b, ptr, sizeof(uint8_t));
+						std::memcpy(&r, base + offset_r, sizeof(uint8_t));
+						std::memcpy(&g, base + offset_g, sizeof(uint8_t));
+						std::memcpy(&b, base + offset_b, sizeof(uint8_t));
 						result.colors[i] = core::Vec3f(r, g, b);
 					}
 				}

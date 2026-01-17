@@ -7,7 +7,7 @@ namespace inf::pc {
 
 namespace {
 core::Unexpected<core::Error> err(const char* msg) {
-    return core::unexpected(core::Error{core::ErrorCode::kInvalidArgument, msg});
+    return core::unexpected(core::Error{core::ErrorCode::InvalidArgument, msg});
 }
 }
 
@@ -87,8 +87,8 @@ core::Result<PointCloud> merge_clouds(const std::vector<PointCloud>& clouds, flo
         core::Vec3f norm_sum = core::Vec3f::Zero();
         core::Vec3f color_sum = core::Vec3f::Zero();
         float conf_sum = 0.0f, scale_sum = 0.0f;
-        std::vector<uint32_t> all_views;
         size_t count = 0;
+        std::vector<uint32_t> all_views;
     };
 
     std::unordered_map<detail::VoxelKey, MergeData, detail::VoxelKeyHash> voxel_map;
@@ -129,14 +129,14 @@ core::Result<PointCloud> merge_clouds(const std::vector<PointCloud>& clouds, flo
 
     for (auto& [key, d] : voxel_map) {
         float inv = 1.0f / static_cast<float>(d.count);
-        result.positions.push_back(d.pos_sum * inv);
+        result.positions.emplace_back(d.pos_sum * inv);
         if (any_n) {
             core::Vec3f n = d.norm_sum * inv;
             float len = n.norm();
             if (len > 1e-6f) n /= len;
             result.normals.push_back(n);
         }
-        if (any_c) result.colors.push_back(d.color_sum * inv);
+        if (any_c) result.colors.emplace_back(d.color_sum * inv);
         if (any_conf) result.confidences.push_back(d.conf_sum * inv);
         if (any_sc) result.scales.push_back(d.scale_sum * inv);
         if (any_vis) {

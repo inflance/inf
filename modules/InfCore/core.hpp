@@ -47,18 +47,18 @@ using Quatd = Eigen::Quaterniond;
 // 错误处理
 // ============================================================================
 enum class ErrorCode : uint32_t {
-    kSuccess = 0,
-    kFileNotFound,
-    kParseError,
-    kInvalidArgument,
-    kOutOfMemory,
-    kUnsupportedFormat,
+    Success = 0,
+    FileNotFound,
+    ParseError,
+    InvalidArgument,
+    OutOfMemory,
+    UnsupportedFormat,
 };
 
 struct Error {
-    ErrorCode   code = ErrorCode::kSuccess;
+    ErrorCode   code = ErrorCode::Success;
     std::string message;
-    [[nodiscard]] bool ok() const noexcept { return code == ErrorCode::kSuccess; }
+    [[nodiscard]] bool ok() const noexcept { return code == ErrorCode::Success; }
 };
 
 // ============================================================================

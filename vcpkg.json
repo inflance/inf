@@ -19,6 +19,7 @@
     "pcl",
     "nlohmann-json",
     "gtest",
-    "magic-enum"
+    "magic-enum",
+    "tbb"
   ]
 }

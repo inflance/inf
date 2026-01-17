@@ -8,7 +8,7 @@ namespace inf::pc {
 
 namespace {
 core::Unexpected<core::Error> err(const char* msg) {
-    return core::unexpected(core::Error{core::ErrorCode::kInvalidArgument, msg});
+    return core::unexpected(core::Error{core::ErrorCode::InvalidArgument, msg});
 }
 }
 
@@ -48,7 +48,7 @@ core::Result<PointCloud> passthrough_filter(const PointCloud& cloud, int axis, f
 
     if (keep_organized) {
         PointCloud result = cloud;
-        const float nan_val = std::numeric_limits<float>::quiet_NaN();
+        constexpr float nan_val = std::numeric_limits<float>::quiet_NaN();
         for (size_t i = 0; i < result.size(); ++i) {
             float val = result.positions[i][axis];
             if (val < min_val || val > max_val) {
