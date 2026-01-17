@@ -12,6 +12,7 @@ project(InfMVS
 option(INFMVS_BUILD_APPS   "Build CLI applications" ON)
 option(INFMVS_BUILD_TESTS  "Build tests" ON)
 option(INFMVS_BUILD_SHARED "Build shared libraries (DLL)" ON)
+option(INFMVS_USE_OPENMP   "Enable OpenMP for parallel processing" ON)
 
 # ============================================================================
 # Global Settings

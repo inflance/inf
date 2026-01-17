@@ -223,3 +223,180 @@ TEST(InfIO, TextBinaryConsistency) {
         }
     }
 }
+
+// ============================================================================
+// Mesh 读写测试
+// ============================================================================
+
+TEST(InfIO, ReadPlyMesh) {
+    const auto mesh_path = kTestDataDir / "ply" / "mesh.ply";
+    auto result = inf::io::read_ply_mesh(mesh_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message;
+
+    const auto& mesh = *result;
+    EXPECT_GT(mesh.vertices.size(), 0);
+    EXPECT_GT(mesh.indices.size(), 0);
+    EXPECT_EQ(mesh.indices.size() % 3, 0);  // 三角形索引
+}
+
+TEST(InfIO, ReadPlyMeshNotFound) {
+    auto result = inf::io::read_ply_mesh("nonexistent.ply");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, inf::core::ErrorCode::kFileNotFound);
+}
+
+TEST(InfIO, WritePlyMeshBinary) {
+    // 读取原始 mesh
+    const auto mesh_path = kTestDataDir / "ply" / "mesh.ply";
+    auto read_result = inf::io::read_ply_mesh(mesh_path);
+    ASSERT_TRUE(read_result.has_value());
+    const auto& original = *read_result;
+
+    // 写入临时文件 (binary)
+    const auto tmp_path = std::filesystem::temp_directory_path() / "test_mesh_bin.ply";
+    auto write_result = inf::io::write_ply_mesh(tmp_path, original, true);
+    ASSERT_TRUE(write_result.has_value()) << write_result.error().message;
+
+    // 重新读取验证
+    auto reread_result = inf::io::read_ply_mesh(tmp_path);
+    ASSERT_TRUE(reread_result.has_value());
+    const auto& reread = *reread_result;
+
+    EXPECT_EQ(original.vertices.size(), reread.vertices.size());
+    EXPECT_EQ(original.indices.size(), reread.indices.size());
+
+    // 清理
+    std::filesystem::remove(tmp_path);
+}
+
+TEST(InfIO, WritePlyMeshAscii) {
+    // 创建一个小的测试 mesh，避免 ASCII 大文件测试太慢
+    inf::mesh::Mesh small_mesh;
+    small_mesh.vertices = {
+        {0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.5f, 1.0f, 0.0f},
+        {0.5f, 0.5f, 1.0f}
+    };
+    small_mesh.indices = {0, 1, 2, 0, 1, 3, 1, 2, 3, 0, 2, 3};  // 4 triangles
+
+    // 写入临时文件 (ascii)
+    const auto tmp_path = std::filesystem::temp_directory_path() / "test_mesh_ascii.ply";
+    auto write_result = inf::io::write_ply_mesh(tmp_path, small_mesh, false);
+    ASSERT_TRUE(write_result.has_value()) << write_result.error().message;
+
+    // 重新读取验证
+    auto reread_result = inf::io::read_ply_mesh(tmp_path);
+    ASSERT_TRUE(reread_result.has_value());
+    const auto& reread = *reread_result;
+
+    EXPECT_EQ(small_mesh.vertices.size(), reread.vertices.size());
+    EXPECT_EQ(small_mesh.indices.size(), reread.indices.size());
+
+    // 验证顶点数据近似相等
+    for (size_t i = 0; i < small_mesh.vertices.size(); ++i) {
+        EXPECT_NEAR(small_mesh.vertices[i].x(), reread.vertices[i].x(), 1e-5f);
+        EXPECT_NEAR(small_mesh.vertices[i].y(), reread.vertices[i].y(), 1e-5f);
+        EXPECT_NEAR(small_mesh.vertices[i].z(), reread.vertices[i].z(), 1e-5f);
+    }
+
+    // 清理
+    std::filesystem::remove(tmp_path);
+}
+
+// ============================================================================
+// PointCloud 读写测试
+// ============================================================================
+
+TEST(InfIO, ReadPointCloud) {
+    const auto pc_path = kTestDataDir / "ply" / "point_cloud.ply";
+    auto result = inf::io::read_point_cloud(pc_path);
+    ASSERT_TRUE(result.has_value()) << result.error().message;
+
+    const auto& cloud = *result;
+    EXPECT_GT(cloud.positions.size(), 0);
+}
+
+TEST(InfIO, ReadPointCloudNotFound) {
+    auto result = inf::io::read_point_cloud("nonexistent.ply");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().code, inf::core::ErrorCode::kFileNotFound);
+}
+
+TEST(InfIO, WritePointCloudPlyBinary) {
+    // 读取原始点云
+    const auto pc_path = kTestDataDir / "ply" / "point_cloud.ply";
+    auto read_result = inf::io::read_point_cloud(pc_path);
+    ASSERT_TRUE(read_result.has_value());
+    const auto& original = *read_result;
+
+    // 写入临时文件 (binary ply)
+    const auto tmp_path = std::filesystem::temp_directory_path() / "test_pc_bin.ply";
+    auto write_result = inf::io::write_point_cloud(tmp_path, original, true);
+    ASSERT_TRUE(write_result.has_value()) << write_result.error().message;
+
+    // 重新读取验证
+    auto reread_result = inf::io::read_point_cloud(tmp_path);
+    ASSERT_TRUE(reread_result.has_value());
+    const auto& reread = *reread_result;
+
+    EXPECT_EQ(original.positions.size(), reread.positions.size());
+
+    // 清理
+    std::filesystem::remove(tmp_path);
+}
+
+TEST(InfIO, WritePointCloudPlyAscii) {
+    // 读取原始点云
+    const auto pc_path = kTestDataDir / "ply" / "point_cloud.ply";
+    auto read_result = inf::io::read_point_cloud(pc_path);
+    ASSERT_TRUE(read_result.has_value());
+    const auto& original = *read_result;
+
+    // 写入临时文件 (ascii ply)
+    const auto tmp_path = std::filesystem::temp_directory_path() / "test_pc_ascii.ply";
+    auto write_result = inf::io::write_point_cloud(tmp_path, original, false);
+    ASSERT_TRUE(write_result.has_value()) << write_result.error().message;
+
+    // 重新读取验证
+    auto reread_result = inf::io::read_point_cloud(tmp_path);
+    ASSERT_TRUE(reread_result.has_value());
+    const auto& reread = *reread_result;
+
+    EXPECT_EQ(original.positions.size(), reread.positions.size());
+
+    // 清理
+    std::filesystem::remove(tmp_path);
+}
+
+TEST(InfIO, WritePointCloudPcd) {
+    // 读取原始点云
+    const auto pc_path = kTestDataDir / "ply" / "point_cloud.ply";
+    auto read_result = inf::io::read_point_cloud(pc_path);
+    ASSERT_TRUE(read_result.has_value());
+    const auto& original = *read_result;
+
+    // 写入 PCD 格式
+    const auto tmp_path = std::filesystem::temp_directory_path() / "test_pc.pcd";
+    auto write_result = inf::io::write_point_cloud(tmp_path, original, true);
+    ASSERT_TRUE(write_result.has_value()) << write_result.error().message;
+
+    // 重新读取验证
+    auto reread_result = inf::io::read_point_cloud(tmp_path);
+    ASSERT_TRUE(reread_result.has_value());
+    const auto& reread = *reread_result;
+
+    EXPECT_EQ(original.positions.size(), reread.positions.size());
+
+    // 清理
+    std::filesystem::remove(tmp_path);
+}
+
+TEST(InfIO, FormatFromExtension) {
+    EXPECT_EQ(inf::io::format_from_extension("test.ply"), inf::io::IoFormat::Mesh);
+    EXPECT_EQ(inf::io::format_from_extension("test.pcd"), inf::io::IoFormat::PointCloud);
+    EXPECT_EQ(inf::io::format_from_extension("test.xyz"), inf::io::IoFormat::Unknown);
+}
+
+TEST(InfIO, FormatFromPath) {
+    EXPECT_EQ(inf::io::format_from_path(kTestDataDir), inf::io::IoFormat::SparseModel);
+    EXPECT_EQ(inf::io::format_from_path(kTestDataDir / "ply" / "mesh.ply"), inf::io::IoFormat::Mesh);
+}

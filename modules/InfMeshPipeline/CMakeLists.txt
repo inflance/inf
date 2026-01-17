@@ -1,9 +1,10 @@
 # InfMeshPipeline - 流水线库
 # 职责：端到端重建、批处理
 
-add_library(InfMeshPipeline
-  pipeline.cpp
-)
+file(GLOB_RECURSE INFPIPE_SOURCES CONFIGURE_DEPENDS "*.cpp")
+file(GLOB_RECURSE INFPIPE_HEADERS CONFIGURE_DEPENDS "*.hpp" "*.h")
+
+add_library(InfMeshPipeline ${INFPIPE_SOURCES} ${INFPIPE_HEADERS})
 add_library(InfMVS::Pipeline ALIAS InfMeshPipeline)
 
 target_include_directories(InfMeshPipeline
@@ -25,4 +26,4 @@ install(TARGETS InfMeshPipeline
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(FILES InfMeshPipeline.hpp pipeline.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)
+install(FILES ${INFPIPE_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

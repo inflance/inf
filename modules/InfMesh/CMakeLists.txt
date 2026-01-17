@@ -1,9 +1,10 @@
 # InfMesh - 网格处理库
 # 职责：数据结构、简化、细分、修复
 
-add_library(InfMesh
-  mesh.cpp
-)
+file(GLOB_RECURSE INFMESH_SOURCES CONFIGURE_DEPENDS "*.cpp")
+file(GLOB_RECURSE INFMESH_HEADERS CONFIGURE_DEPENDS "*.hpp" "*.h")
+
+add_library(InfMesh ${INFMESH_SOURCES} ${INFMESH_HEADERS})
 add_library(InfMVS::Mesh ALIAS InfMesh)
 
 target_include_directories(InfMesh
@@ -25,4 +26,4 @@ install(TARGETS InfMesh
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(FILES InfMesh.hpp mesh.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)
+install(FILES ${INFMESH_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

@@ -1,9 +1,10 @@
 # InfPointCloud - 点云处理库
 # 职责：滤波、配准、法向估计
 
-add_library(InfPointCloud
-  point_cloud.cpp
-)
+file(GLOB_RECURSE INFPC_SOURCES CONFIGURE_DEPENDS "*.cpp")
+file(GLOB_RECURSE INFPC_HEADERS CONFIGURE_DEPENDS "*.hpp" "*.h")
+
+add_library(InfPointCloud ${INFPC_SOURCES} ${INFPC_HEADERS})
 add_library(InfMVS::PointCloud ALIAS InfPointCloud)
 
 target_include_directories(InfPointCloud
@@ -25,4 +26,4 @@ install(TARGETS InfPointCloud
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(FILES InfPointCloud.hpp point_cloud.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)
+install(FILES ${INFPC_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

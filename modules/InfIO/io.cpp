@@ -1,10 +1,9 @@
 /// @file io.cpp
 #include "io.hpp"
+#include "ply.hpp"
+#include "macro.hpp"
+
 #include <cmath>
-#include <assimp/Exporter.hpp>
-#include <assimp/Importer.hpp>
-#include <assimp/postprocess.h>
-#include <assimp/scene.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/common/common.h>
 #include <pcl/conversions.h>
@@ -15,6 +14,7 @@
 #include <charconv>
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 
@@ -22,16 +22,10 @@ namespace inf::io {
 
 namespace {
 
-// ============================================================================
-// 辅助函数
-// ============================================================================
-
-/// @brief 创建文件未找到错误
 [[nodiscard]] core::Error file_not_found_error(const std::filesystem::path& path) {
     return {core::ErrorCode::kFileNotFound, "File not found: " + path.string()};
 }
 
-/// @brief 创建解析错误
 [[nodiscard]] core::Error parse_error(const std::string& msg) {
     return {core::ErrorCode::kParseError, msg};
 }
@@ -44,7 +38,6 @@ namespace {
     return {core::ErrorCode::kUnsupportedFormat, "Unsupported format: " + path.string()};
 }
 
-/// @brief 判断行是否为注释或空行
 [[nodiscard]] bool is_comment_or_empty(const std::string& line) {
     if (line.empty()) return true;
     for (char c : line) {
@@ -54,13 +47,11 @@ namespace {
     return true;
 }
 
-/// @brief 小端序读取
 template <typename T>
 [[nodiscard]] bool read_binary(std::istream& is, T& value) {
     return static_cast<bool>(is.read(reinterpret_cast<char*>(&value), sizeof(T)));
 }
 
-/// @brief 读取 null-terminated 字符串
 [[nodiscard]] bool read_binary_string(std::istream& is, std::string& str) {
     str.clear();
     char c;
@@ -77,32 +68,37 @@ template <typename T>
     return s;
 }
 
+[[nodiscard]] const char* skip_whitespace(const char* p, const char* end) {
+    while (p < end && (*p == ' ' || *p == '\t')) ++p;
+    return p;
+}
+
+template <typename T>
+[[nodiscard]] const char* parse_int(const char* p, const char* end, T& value) {
+    p = skip_whitespace(p, end);
+    auto result = std::from_chars(p, end, value);
+    return (result.ec == std::errc{}) ? result.ptr : nullptr;
+}
+
+[[nodiscard]] const char* parse_double(const char* p, const char* end, double& value) {
+    p = skip_whitespace(p, end);
+    // std::from_chars for double 在某些编译器上不支持，使用 strtod
+    char* endptr = nullptr;
+    value = std::strtod(p, &endptr);
+    return (endptr > p) ? endptr : nullptr;
+}
+
+[[nodiscard]] const char* parse_string(const char* p, const char* end, std::string& value) {
+    p = skip_whitespace(p, end);
+    const char* start = p;
+    while (p < end && *p != ' ' && *p != '\t' && *p != '\n' && *p != '\r') ++p;
+    value.assign(start, p);
+    return p;
+}
+
 [[nodiscard]] std::string file_extension_lower(const std::filesystem::path& path) {
     return to_lower(path.extension().string());
 }
-
-struct AssimpSceneDeleter {
-    void operator()(aiScene* scene) const {
-        if (!scene) return;
-        if (scene->mMeshes) {
-            for (unsigned int i = 0; i < scene->mNumMeshes; ++i) {
-                delete scene->mMeshes[i];
-            }
-            delete[] scene->mMeshes;
-        }
-        if (scene->mMaterials) {
-            for (unsigned int i = 0; i < scene->mNumMaterials; ++i) {
-                delete scene->mMaterials[i];
-            }
-            delete[] scene->mMaterials;
-        }
-        if (scene->mRootNode) {
-            delete[] scene->mRootNode->mMeshes;
-            delete scene->mRootNode;
-        }
-        delete scene;
-    }
-};
 
 [[nodiscard]] bool has_field(const pcl::PCLPointCloud2& cloud, const std::string& name) {
     return pcl::getFieldIndex(cloud, name) >= 0;
@@ -113,11 +109,6 @@ struct AssimpSceneDeleter {
     return static_cast<uint8_t>(clamped);
 }
 
-// ============================================================================
-// Text 格式解析
-// ============================================================================
-
-/// @brief 解析 cameras.txt
 [[nodiscard]] core::Result<std::unordered_map<uint32_t, core::Camera>>
 read_cameras_text(const std::filesystem::path& path) {
     std::ifstream file(path);
@@ -155,7 +146,6 @@ read_cameras_text(const std::filesystem::path& path) {
     return cameras;
 }
 
-/// @brief 解析 images.txt
 [[nodiscard]] core::Result<std::unordered_map<uint32_t, core::Image>>
 read_images_text(const std::filesystem::path& path) {
     std::ifstream file(path);
@@ -164,23 +154,32 @@ read_images_text(const std::filesystem::path& path) {
     }
 
     std::unordered_map<uint32_t, core::Image> images;
+    images.reserve(1000);  // 预分配
     std::string line;
+    line.reserve(4096);
 
     while (std::getline(file, line)) {
         if (is_comment_or_empty(line)) continue;
 
-        // 第一行: IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME
-        std::istringstream iss(line);
+        const char* p = line.data();
+        const char* end = p + line.size();
         core::Image img;
-        double qw, qx, qy, qz;
+        double qw, qx, qy, qz, tx, ty, tz;
 
-        if (!(iss >> img.id >> qw >> qx >> qy >> qz 
-                  >> img.translation.x() >> img.translation.y() >> img.translation.z()
-                  >> img.camera_id >> img.name)) {
-            return core::unexpected(parse_error("Failed to parse image: " + line));
-        }
+        // IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME
+        if (!(p = parse_int(p, end, img.id))) continue;
+        if (!(p = parse_double(p, end, qw))) continue;
+        if (!(p = parse_double(p, end, qx))) continue;
+        if (!(p = parse_double(p, end, qy))) continue;
+        if (!(p = parse_double(p, end, qz))) continue;
+        if (!(p = parse_double(p, end, tx))) continue;
+        if (!(p = parse_double(p, end, ty))) continue;
+        if (!(p = parse_double(p, end, tz))) continue;
+        if (!(p = parse_int(p, end, img.camera_id))) continue;
+        if (!(p = parse_string(p, end, img.name))) continue;
 
         img.rotation = core::Quatd(qw, qx, qy, qz);
+        img.translation = core::Vec3d(tx, ty, tz);
 
         // 第二行: POINTS2D[] as (X, Y, POINT3D_ID)
         if (!std::getline(file, line)) {
@@ -188,14 +187,15 @@ read_images_text(const std::filesystem::path& path) {
         }
 
         if (!is_comment_or_empty(line)) {
-            std::istringstream iss2(line);
+            p = line.data();
+            end = p + line.size();
+            img.points2d.reserve(500);  // 预分配
             double x, y;
             int64_t point3d_id;
-            while (iss2 >> x >> y >> point3d_id) {
-                core::Point2D pt;
-                pt.xy = core::Vec2d(x, y);
-                pt.point3d_id = point3d_id;
-                img.points2d.push_back(pt);
+            while ((p = parse_double(p, end, x)) && 
+                   (p = parse_double(p, end, y)) && 
+                   (p = parse_int(p, end, point3d_id))) {
+                img.points2d.push_back({core::Vec2d(x, y), point3d_id});
             }
         }
 
@@ -205,7 +205,7 @@ read_images_text(const std::filesystem::path& path) {
     return images;
 }
 
-/// @brief 解析 points3D.txt
+/// @brief 解析 points3D.txt (优化版)
 [[nodiscard]] core::Result<std::unordered_map<uint64_t, core::Point3D>>
 read_points3d_text(const std::filesystem::path& path) {
     std::ifstream file(path);
@@ -214,27 +214,36 @@ read_points3d_text(const std::filesystem::path& path) {
     }
 
     std::unordered_map<uint64_t, core::Point3D> points3d;
+    points3d.reserve(10000);  // 预分配
     std::string line;
+    line.reserve(1024);
 
     while (std::getline(file, line)) {
         if (is_comment_or_empty(line)) continue;
 
-        // POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)
-        std::istringstream iss(line);
+        const char* p = line.data();
+        const char* end = p + line.size();
         core::Point3D pt;
+        double x, y, z;
         int r, g, b;
 
-        if (!(iss >> pt.id 
-                  >> pt.position.x() >> pt.position.y() >> pt.position.z()
-                  >> r >> g >> b >> pt.error)) {
-            return core::unexpected(parse_error("Failed to parse point3d: " + line));
-        }
+        // POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[]
+        if (!(p = parse_int(p, end, pt.id))) continue;
+        if (!(p = parse_double(p, end, x))) continue;
+        if (!(p = parse_double(p, end, y))) continue;
+        if (!(p = parse_double(p, end, z))) continue;
+        if (!(p = parse_int(p, end, r))) continue;
+        if (!(p = parse_int(p, end, g))) continue;
+        if (!(p = parse_int(p, end, b))) continue;
+        if (!(p = parse_double(p, end, pt.error))) continue;
 
+        pt.position = core::Vec3d(x, y, z);
         pt.color = core::Vec3f(static_cast<float>(r), static_cast<float>(g), static_cast<float>(b));
 
         // 解析 track
+        pt.track.reserve(8);
         uint32_t image_id, point2d_idx;
-        while (iss >> image_id >> point2d_idx) {
+        while ((p = parse_int(p, end, image_id)) && (p = parse_int(p, end, point2d_idx))) {
             pt.track.push_back({image_id, point2d_idx});
         }
 
@@ -267,14 +276,17 @@ read_cameras_binary(const std::filesystem::path& path) {
     for (uint64_t i = 0; i < num_cameras; ++i) {
         core::Camera cam;
         int32_t model_id;
+        uint64_t width, height;  // COLMAP binary 用 uint64_t
 
         if (!read_binary(file, cam.id) ||
             !read_binary(file, model_id) ||
-            !read_binary(file, cam.width) ||
-            !read_binary(file, cam.height)) {
+            !read_binary(file, width) ||
+            !read_binary(file, height)) {
             return core::unexpected(parse_error("Failed to read camera header"));
         }
 
+        cam.width = static_cast<uint32_t>(width);
+        cam.height = static_cast<uint32_t>(height);
         cam.model = static_cast<core::CameraModel>(model_id);
         const auto num_params = core::camera_model_num_params(cam.model);
         cam.params.resize(num_params);
@@ -537,111 +549,22 @@ IoFormat format_from_path(const std::filesystem::path& path) {
     return format_from_extension(path);
 }
 
+// ============================================================================
+// PLY I/O (委托给 PlyFile 类)
+// ============================================================================
+
 core::Result<mesh::Mesh> read_ply_mesh(const std::filesystem::path& path) {
-    if (!std::filesystem::exists(path)) {
-        return core::unexpected(file_not_found_error(path));
-    }
-
-    Assimp::Importer importer;
-    const unsigned int flags = aiProcess_Triangulate | aiProcess_JoinIdenticalVertices;
-    const aiScene* scene = importer.ReadFile(path.string(), flags);
-    if (!scene || !scene->HasMeshes()) {
-        return core::unexpected(parse_error("Failed to read PLY mesh: " + std::string(importer.GetErrorString())));
-    }
-
-    const aiMesh* ai_mesh = scene->mMeshes[0];
-    mesh::Mesh result;
-    result.vertices.reserve(ai_mesh->mNumVertices);
-    if (ai_mesh->HasNormals()) {
-        result.normals.reserve(ai_mesh->mNumVertices);
-    }
-
-    for (unsigned int i = 0; i < ai_mesh->mNumVertices; ++i) {
-        const auto& v = ai_mesh->mVertices[i];
-        result.vertices.emplace_back(v.x, v.y, v.z);
-        if (ai_mesh->HasNormals()) {
-            const auto& n = ai_mesh->mNormals[i];
-            result.normals.emplace_back(n.x, n.y, n.z);
-        }
-    }
-
-    result.indices.reserve(static_cast<size_t>(ai_mesh->mNumFaces) * 3);
-    for (unsigned int i = 0; i < ai_mesh->mNumFaces; ++i) {
-        const aiFace& face = ai_mesh->mFaces[i];
-        if (face.mNumIndices != 3) {
-            return core::unexpected(invalid_argument_error("Non-triangle face in mesh: " + path.string()));
-        }
-        result.indices.push_back(face.mIndices[0]);
-        result.indices.push_back(face.mIndices[1]);
-        result.indices.push_back(face.mIndices[2]);
-    }
-
-    return result;
+    return PlyFile::read_mesh(path);
 }
 
 core::Result<void> write_ply_mesh(
     const std::filesystem::path& path, const mesh::Mesh& mesh, bool binary) {
-    if (mesh.indices.size() % 3 != 0) {
-        return core::unexpected(invalid_argument_error("Mesh indices must be triangles"));
-    }
-    if (mesh.vertices.empty()) {
-        return core::unexpected(invalid_argument_error("Mesh has no vertices"));
-    }
-
-    auto scene = std::unique_ptr<aiScene, AssimpSceneDeleter>(new aiScene());
-    scene->mRootNode = new aiNode();
-    scene->mRootNode->mNumMeshes = 1;
-    scene->mRootNode->mMeshes = new unsigned int[1]{0};
-
-    scene->mNumMeshes = 1;
-    scene->mMeshes = new aiMesh*[1];
-    scene->mMeshes[0] = new aiMesh();
-    aiMesh* ai_mesh = scene->mMeshes[0];
-
-    ai_mesh->mMaterialIndex = 0;
-    ai_mesh->mNumVertices = static_cast<unsigned int>(mesh.vertices.size());
-    ai_mesh->mVertices = new aiVector3D[ai_mesh->mNumVertices];
-
-    const bool has_normals = mesh.normals.size() == mesh.vertices.size();
-    if (has_normals) {
-        ai_mesh->mNormals = new aiVector3D[ai_mesh->mNumVertices];
-    }
-
-    for (unsigned int i = 0; i < ai_mesh->mNumVertices; ++i) {
-        const auto& v = mesh.vertices[i];
-        ai_mesh->mVertices[i] = aiVector3D(v.x(), v.y(), v.z());
-        if (has_normals) {
-            const auto& n = mesh.normals[i];
-            ai_mesh->mNormals[i] = aiVector3D(n.x(), n.y(), n.z());
-        }
-    }
-
-    ai_mesh->mNumFaces = static_cast<unsigned int>(mesh.indices.size() / 3);
-    ai_mesh->mFaces = new aiFace[ai_mesh->mNumFaces];
-    for (unsigned int i = 0; i < ai_mesh->mNumFaces; ++i) {
-        aiFace& face = ai_mesh->mFaces[i];
-        face.mNumIndices = 3;
-        face.mIndices = new unsigned int[3];
-        const size_t base = static_cast<size_t>(i) * 3;
-        face.mIndices[0] = mesh.indices[base];
-        face.mIndices[1] = mesh.indices[base + 1];
-        face.mIndices[2] = mesh.indices[base + 2];
-    }
-
-    scene->mNumMaterials = 1;
-    scene->mMaterials = new aiMaterial*[1];
-    scene->mMaterials[0] = new aiMaterial();
-
-    Assimp::Exporter exporter;
-    const char* format_id = binary ? "plyb" : "ply";
-    if (exporter.Export(scene.get(), format_id, path.string()) != AI_SUCCESS) {
-        if (!binary || exporter.Export(scene.get(), "ply", path.string()) != AI_SUCCESS) {
-            return core::unexpected(parse_error("Failed to write PLY mesh: " + std::string(exporter.GetErrorString())));
-        }
-    }
-
-    return {};
+    return PlyFile::write_mesh(path, mesh, binary);
 }
+
+// ============================================================================
+// Point Cloud I/O
+// ============================================================================
 
 core::Result<pc::PointCloud> read_point_cloud(const std::filesystem::path& path) {
     if (!std::filesystem::exists(path)) {
@@ -649,169 +572,89 @@ core::Result<pc::PointCloud> read_point_cloud(const std::filesystem::path& path)
     }
 
     const std::string ext = file_extension_lower(path);
-    pcl::PCLPointCloud2 cloud_blob;
-    int load_result = -1;
 
+    // PLY: 使用 PlyFile 类
     if (ext == ".ply") {
-        load_result = pcl::io::loadPLYFile(path.string(), cloud_blob);
-    } else if (ext == ".pcd") {
-        load_result = pcl::io::loadPCDFile(path.string(), cloud_blob);
-    } else {
-        return core::unexpected(unsupported_format_error(path));
+        return PlyFile::read_pointcloud(path);
     }
 
-    if (load_result < 0) {
-        return core::unexpected(parse_error("Failed to read point cloud: " + path.string()));
+    // PCD: 使用 PCL
+    if (ext == ".pcd") {
+        pcl::PCLPointCloud2 cloud_blob;
+        if (pcl::io::loadPCDFile(path.string(), cloud_blob) < 0) {
+            return core::unexpected(parse_error("Failed to read PCD: " + path.string()));
+        }
+
+        const bool has_rgb = has_field(cloud_blob, "rgb") || has_field(cloud_blob, "rgba");
+        const bool has_normals = has_field(cloud_blob, "normal_x");
+
+        pcl::PointCloud<pcl::PointXYZRGBNormal> pcl_cloud;
+        pcl::fromPCLPointCloud2(cloud_blob, pcl_cloud);
+
+        pc::PointCloud result;
+        result.positions.reserve(pcl_cloud.points.size());
+        if (has_normals) result.normals.reserve(pcl_cloud.points.size());
+        if (has_rgb) result.colors.reserve(pcl_cloud.points.size());
+
+        for (const auto& pt : pcl_cloud.points) {
+            if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || !std::isfinite(pt.z)) continue;
+            result.positions.emplace_back(pt.x, pt.y, pt.z);
+            if (has_normals) result.normals.emplace_back(pt.normal_x, pt.normal_y, pt.normal_z);
+            if (has_rgb) result.colors.emplace_back(static_cast<float>(pt.r), static_cast<float>(pt.g), static_cast<float>(pt.b));
+        }
+        return result;
     }
 
-    const bool has_rgb = has_field(cloud_blob, "rgb") || has_field(cloud_blob, "rgba");
-    const bool has_normals = has_field(cloud_blob, "normal_x");
-
-    pcl::PointCloud<pcl::PointXYZRGBNormal> pcl_cloud;
-    pcl::fromPCLPointCloud2(cloud_blob, pcl_cloud);
-
-    pc::PointCloud result;
-    result.positions.reserve(pcl_cloud.points.size());
-    if (has_normals) result.normals.reserve(pcl_cloud.points.size());
-    if (has_rgb) result.colors.reserve(pcl_cloud.points.size());
-
-    for (const auto& pt : pcl_cloud.points) {
-        if (!std::isfinite(pt.x) || !std::isfinite(pt.y) || !std::isfinite(pt.z)) {
-            continue;
-        }
-        result.positions.emplace_back(pt.x, pt.y, pt.z);
-        if (has_normals) {
-            result.normals.emplace_back(pt.normal_x, pt.normal_y, pt.normal_z);
-        }
-        if (has_rgb) {
-            result.colors.emplace_back(static_cast<float>(pt.r),
-                                       static_cast<float>(pt.g),
-                                       static_cast<float>(pt.b));
-        }
-    }
-
-    return result;
+    return core::unexpected(unsupported_format_error(path));
 }
 
 core::Result<void> write_point_cloud(
     const std::filesystem::path& path, const pc::PointCloud& cloud, bool binary) {
     const std::string ext = file_extension_lower(path);
-    if (cloud.positions.empty()) {
-        return core::unexpected(invalid_argument_error("Point cloud has no points"));
+
+    // PLY: 使用 PlyFile 类
+    if (ext == ".ply") {
+        return PlyFile::write_pointcloud(path, cloud, binary);
     }
 
-    const bool has_colors = !cloud.colors.empty();
-    const bool has_normals = !cloud.normals.empty();
-    if (has_colors && cloud.colors.size() != cloud.positions.size()) {
-        return core::unexpected(invalid_argument_error("Point cloud colors size mismatch"));
-    }
-    if (has_normals && cloud.normals.size() != cloud.positions.size()) {
-        return core::unexpected(invalid_argument_error("Point cloud normals size mismatch"));
-    }
+    // PCD: 使用 PCL
+    if (ext == ".pcd") {
+        if (cloud.positions.empty()) {
+            return core::unexpected(invalid_argument_error("Point cloud has no points"));
+        }
 
-    int save_result = -1;
-    if (has_colors && has_normals) {
+        const bool has_colors = !cloud.colors.empty();
+        const bool has_normals = !cloud.normals.empty();
+
         pcl::PointCloud<pcl::PointXYZRGBNormal> pcl_cloud;
-        pcl_cloud.points.reserve(cloud.positions.size());
-        for (size_t i = 0; i < cloud.positions.size(); ++i) {
-            pcl::PointXYZRGBNormal pt;
+        pcl_cloud.points.resize(cloud.positions.size());
+        pcl_cloud.width = static_cast<uint32_t>(cloud.positions.size());
+        pcl_cloud.height = 1;
+
+        INFMVS_OMP_PARALLEL_FOR
+        for (int64_t i = 0; i < static_cast<int64_t>(cloud.positions.size()); ++i) {
+            auto& pt = pcl_cloud.points[i];
             const auto& p = cloud.positions[i];
-            const auto& n = cloud.normals[i];
-            const auto& c = cloud.colors[i];
             pt.x = p.x(); pt.y = p.y(); pt.z = p.z();
-            pt.normal_x = n.x(); pt.normal_y = n.y(); pt.normal_z = n.z();
-            pt.r = clamp_color(c.x());
-            pt.g = clamp_color(c.y());
-            pt.b = clamp_color(c.z());
-            pcl_cloud.points.push_back(pt);
+            if (has_normals) {
+                const auto& n = cloud.normals[i];
+                pt.normal_x = n.x(); pt.normal_y = n.y(); pt.normal_z = n.z();
+            }
+            if (has_colors) {
+                const auto& c = cloud.colors[i];
+                pt.r = clamp_color(c.x()); pt.g = clamp_color(c.y()); pt.b = clamp_color(c.z());
+            }
         }
-        pcl_cloud.width = static_cast<uint32_t>(pcl_cloud.points.size());
-        pcl_cloud.height = 1;
 
-        if (ext == ".ply") {
-            save_result = binary ? pcl::io::savePLYFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePLYFileASCII(path.string(), pcl_cloud);
-        } else if (ext == ".pcd") {
-            save_result = binary ? pcl::io::savePCDFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePCDFileASCII(path.string(), pcl_cloud);
-        } else {
-            return core::unexpected(unsupported_format_error(path));
+        int result = binary ? pcl::io::savePCDFileBinary(path.string(), pcl_cloud)
+                            : pcl::io::savePCDFileASCII(path.string(), pcl_cloud);
+        if (result < 0) {
+            return core::unexpected(parse_error("Failed to write PCD: " + path.string()));
         }
-    } else if (has_colors) {
-        pcl::PointCloud<pcl::PointXYZRGB> pcl_cloud;
-        pcl_cloud.points.reserve(cloud.positions.size());
-        for (size_t i = 0; i < cloud.positions.size(); ++i) {
-            pcl::PointXYZRGB pt;
-            const auto& p = cloud.positions[i];
-            const auto& c = cloud.colors[i];
-            pt.x = p.x(); pt.y = p.y(); pt.z = p.z();
-            pt.r = clamp_color(c.x());
-            pt.g = clamp_color(c.y());
-            pt.b = clamp_color(c.z());
-            pcl_cloud.points.push_back(pt);
-        }
-        pcl_cloud.width = static_cast<uint32_t>(pcl_cloud.points.size());
-        pcl_cloud.height = 1;
-
-        if (ext == ".ply") {
-            save_result = binary ? pcl::io::savePLYFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePLYFileASCII(path.string(), pcl_cloud);
-        } else if (ext == ".pcd") {
-            save_result = binary ? pcl::io::savePCDFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePCDFileASCII(path.string(), pcl_cloud);
-        } else {
-            return core::unexpected(unsupported_format_error(path));
-        }
-    } else if (has_normals) {
-        pcl::PointCloud<pcl::PointNormal> pcl_cloud;
-        pcl_cloud.points.reserve(cloud.positions.size());
-        for (size_t i = 0; i < cloud.positions.size(); ++i) {
-            pcl::PointNormal pt;
-            const auto& p = cloud.positions[i];
-            const auto& n = cloud.normals[i];
-            pt.x = p.x(); pt.y = p.y(); pt.z = p.z();
-            pt.normal_x = n.x(); pt.normal_y = n.y(); pt.normal_z = n.z();
-            pcl_cloud.points.push_back(pt);
-        }
-        pcl_cloud.width = static_cast<uint32_t>(pcl_cloud.points.size());
-        pcl_cloud.height = 1;
-
-        if (ext == ".ply") {
-            save_result = binary ? pcl::io::savePLYFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePLYFileASCII(path.string(), pcl_cloud);
-        } else if (ext == ".pcd") {
-            save_result = binary ? pcl::io::savePCDFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePCDFileASCII(path.string(), pcl_cloud);
-        } else {
-            return core::unexpected(unsupported_format_error(path));
-        }
-    } else {
-        pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
-        pcl_cloud.points.reserve(cloud.positions.size());
-        for (const auto& p : cloud.positions) {
-            pcl::PointXYZ pt;
-            pt.x = p.x(); pt.y = p.y(); pt.z = p.z();
-            pcl_cloud.points.push_back(pt);
-        }
-        pcl_cloud.width = static_cast<uint32_t>(pcl_cloud.points.size());
-        pcl_cloud.height = 1;
-
-        if (ext == ".ply") {
-            save_result = binary ? pcl::io::savePLYFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePLYFileASCII(path.string(), pcl_cloud);
-        } else if (ext == ".pcd") {
-            save_result = binary ? pcl::io::savePCDFileBinary(path.string(), pcl_cloud)
-                                 : pcl::io::savePCDFileASCII(path.string(), pcl_cloud);
-        } else {
-            return core::unexpected(unsupported_format_error(path));
-        }
+        return {};
     }
 
-    if (save_result < 0) {
-        return core::unexpected(parse_error("Failed to write point cloud: " + path.string()));
-    }
-
-    return {};
+    return core::unexpected(unsupported_format_error(path));
 }
 
 }  // namespace inf::io

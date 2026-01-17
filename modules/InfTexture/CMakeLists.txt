@@ -1,9 +1,10 @@
 # InfTexture - 纹理处理库
 # 职责：UV 展开、纹理映射、Atlas 生成
 
-add_library(InfTexture
-  texture.cpp
-)
+file(GLOB_RECURSE INFTEX_SOURCES CONFIGURE_DEPENDS "*.cpp")
+file(GLOB_RECURSE INFTEX_HEADERS CONFIGURE_DEPENDS "*.hpp" "*.h")
+
+add_library(InfTexture ${INFTEX_SOURCES} ${INFTEX_HEADERS})
 add_library(InfMVS::Texture ALIAS InfTexture)
 
 target_include_directories(InfTexture
@@ -26,4 +27,4 @@ install(TARGETS InfTexture
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(FILES InfTexture.hpp texture.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)
+install(FILES ${INFTEX_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

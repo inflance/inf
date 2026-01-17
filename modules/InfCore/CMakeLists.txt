@@ -1,12 +1,10 @@
 # InfCore - 基础设施库
 # 职责：数学类型、内存管理、日志、错误处理
 
-add_library(InfCore
-  core.cpp
-  camera.cpp
-  log.cpp
-  undistort.cpp
-)
+file(GLOB_RECURSE INFCORE_SOURCES CONFIGURE_DEPENDS "*.cpp")
+file(GLOB_RECURSE INFCORE_HEADERS CONFIGURE_DEPENDS "*.hpp" "*.h")
+
+add_library(InfCore ${INFCORE_SOURCES} ${INFCORE_HEADERS})
 add_library(InfMVS::Core ALIAS InfCore)
 
 target_include_directories(InfCore
@@ -29,7 +27,4 @@ install(TARGETS InfCore
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(FILES
-  InfCore.hpp core.hpp camera.hpp log.hpp enum_utils.hpp undistort.hpp
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS
-)
+install(FILES ${INFCORE_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

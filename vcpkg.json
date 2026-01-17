@@ -13,7 +13,7 @@
     "fmt",
     {
       "name": "opencv4",
-      "features": ["cuda"]
+      "features": ["cuda", "openmp"]
     },
     "openmesh",
     "pcl",

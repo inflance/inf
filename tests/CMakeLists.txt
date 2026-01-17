@@ -19,8 +19,11 @@ target_link_libraries(infmvs_tests
   PRIVATE
     InfCore
     InfIO
+    InfMesh
+    InfPointCloud
     GTest::gtest
     GTest::gtest_main
+    opencv_imgproc
 )
 
 include(GoogleTest)

@@ -1,9 +1,19 @@
 # InfIO - I/O 库
 # 职责：COLMAP/MVS 格式读写、图像加载
 
-add_library(InfIO
-  io.cpp
-)
+if(INFMVS_USE_OPENMP)
+  find_package(OpenMP)
+  if(OpenMP_CXX_FOUND)
+    message(STATUS "InfIO: OpenMP enabled")
+  else()
+    message(WARNING "InfIO: OpenMP requested but not found, disabling")
+  endif()
+endif()
+
+file(GLOB_RECURSE INFIO_SOURCES CONFIGURE_DEPENDS "*.cpp")
+file(GLOB_RECURSE INFIO_HEADERS CONFIGURE_DEPENDS "*.hpp" "*.h")
+
+add_library(InfIO ${INFIO_SOURCES} ${INFIO_HEADERS})
 add_library(InfMVS::IO ALIAS InfIO)
 
 target_include_directories(InfIO
@@ -15,6 +25,11 @@ target_link_libraries(InfIO
   PUBLIC  InfCore InfMesh InfPointCloud
   PRIVATE ${OpenCV_LIBS} nlohmann_json::nlohmann_json assimp::assimp ${PCL_LIBRARIES}
 )
+
+if(INFMVS_USE_OPENMP AND OpenMP_CXX_FOUND)
+  target_link_libraries(InfIO PRIVATE OpenMP::OpenMP_CXX)
+  target_compile_definitions(InfIO PRIVATE INFMVS_USE_OPENMP)
+endif()
 
 target_include_directories(InfIO PRIVATE ${PCL_INCLUDE_DIRS})
 
@@ -28,4 +43,4 @@ install(TARGETS InfIO
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-install(FILES InfIO.hpp io.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)
+install(FILES ${INFIO_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)
