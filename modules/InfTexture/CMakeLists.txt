@@ -17,3 +17,13 @@ target_link_libraries(InfTexture
 )
 
 target_compile_definitions(InfTexture PRIVATE INFTEXTURE_EXPORTS)
+
+# Install
+install(TARGETS InfTexture
+  EXPORT InfMVSTargets
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(FILES InfTexture.hpp texture.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

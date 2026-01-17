@@ -18,9 +18,12 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
-#include <expected>
+#include <variant>
+#include <vector>
+#include <unordered_map>
 
 namespace inf::core {
 
@@ -58,8 +61,63 @@ struct Error {
     [[nodiscard]] bool ok() const noexcept { return code == ErrorCode::kSuccess; }
 };
 
+// ============================================================================
+// C++17 兼容的 Expected 实现
+// ============================================================================
+template <typename E>
+struct Unexpected {
+    E error;
+    explicit Unexpected(E e) : error(std::move(e)) {}
+};
+
+template <typename E>
+Unexpected<std::decay_t<E>> unexpected(E&& e) {
+    return Unexpected<std::decay_t<E>>(std::forward<E>(e));
+}
+
+template <typename T, typename E>
+class Expected {
+    std::variant<T, E> data_;
+    
+public:
+    Expected(T value) : data_(std::move(value)) {}
+    Expected(Unexpected<E> err) : data_(std::move(err.error)) {}
+    
+    [[nodiscard]] bool has_value() const noexcept { return std::holds_alternative<T>(data_); }
+    [[nodiscard]] explicit operator bool() const noexcept { return has_value(); }
+    
+    [[nodiscard]] T& value() & { return std::get<T>(data_); }
+    [[nodiscard]] const T& value() const& { return std::get<T>(data_); }
+    [[nodiscard]] T&& value() && { return std::get<T>(std::move(data_)); }
+    
+    [[nodiscard]] E& error() & { return std::get<E>(data_); }
+    [[nodiscard]] const E& error() const& { return std::get<E>(data_); }
+    [[nodiscard]] E&& error() && { return std::get<E>(std::move(data_)); }
+    
+    [[nodiscard]] T& operator*() & { return value(); }
+    [[nodiscard]] const T& operator*() const& { return value(); }
+    [[nodiscard]] T* operator->() { return &value(); }
+    [[nodiscard]] const T* operator->() const { return &value(); }
+};
+
+// void 特化：用于只返回成功/失败的函数
+template <typename E>
+class Expected<void, E> {
+    std::optional<E> error_;
+    
+public:
+    Expected() = default;
+    Expected(Unexpected<E> err) : error_(std::move(err.error)) {}
+    
+    [[nodiscard]] bool has_value() const noexcept { return !error_.has_value(); }
+    [[nodiscard]] explicit operator bool() const noexcept { return has_value(); }
+    
+    [[nodiscard]] E& error() & { return *error_; }
+    [[nodiscard]] const E& error() const& { return *error_; }
+};
+
 template <typename T>
-using Result = std::expected<T, Error>;
+using Result = Expected<T, Error>;
 
 // ============================================================================
 // 版本

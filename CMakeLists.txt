@@ -16,7 +16,7 @@ option(INFMVS_BUILD_SHARED "Build shared libraries (DLL)" ON)
 # ============================================================================
 # Global Settings
 # ============================================================================
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -37,6 +37,11 @@ endif()
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
+find_package(CGAL CONFIG REQUIRED)
+find_package(OpenMesh CONFIG REQUIRED)
+find_package(PCL CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 

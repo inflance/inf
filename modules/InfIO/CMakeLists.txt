@@ -12,8 +12,20 @@ target_include_directories(InfIO
 )
 
 target_link_libraries(InfIO
-  PUBLIC  InfCore
-  PRIVATE ${OpenCV_LIBS} nlohmann_json::nlohmann_json
+  PUBLIC  InfCore InfMesh InfPointCloud
+  PRIVATE ${OpenCV_LIBS} nlohmann_json::nlohmann_json assimp::assimp ${PCL_LIBRARIES}
 )
 
+target_include_directories(InfIO PRIVATE ${PCL_INCLUDE_DIRS})
+
 target_compile_definitions(InfIO PRIVATE INFIO_EXPORTS)
+
+# Install
+install(TARGETS InfIO
+  EXPORT InfMVSTargets
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(FILES InfIO.hpp io.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

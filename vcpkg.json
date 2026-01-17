@@ -6,41 +6,19 @@
   "license": "MIT",
   "supports": "windows | linux | osx",
   "dependencies": [
-    {
-      "name": "eigen3",
-      "version>=": "3.4.0"
-    },
-    {
-      "name": "spdlog",
-      "version>=": "1.12.0"
-    },
-    {
-      "name": "fmt",
-      "version>=": "10.0.0"
-    },
+    "assimp",
+    "cgal",
+    "eigen3",
+    "spdlog",
+    "fmt",
     {
       "name": "opencv4",
-      "default-features": false,
-      "features": ["core", "imgcodecs", "imgproc"]
+      "features": ["cuda"]
     },
-    {
-      "name": "nlohmann-json",
-      "version>=": "3.11.0"
-    }
-  ],
-  "features": {
-    "cuda": {
-      "description": "Enable CUDA acceleration",
-      "dependencies": []
-    },
-    "tests": {
-      "description": "Build tests",
-      "dependencies": [
-        {
-          "name": "gtest",
-          "version>=": "1.14.0"
-        }
-      ]
-    }
-  }
+    "openmesh",
+    "pcl",
+    "nlohmann-json",
+    "gtest",
+    "magic-enum"
+  ]
 }

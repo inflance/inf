@@ -28,4 +28,5 @@ compile_commands.json
 # OS junk
 Thumbs.db
 Desktop.ini
+testdata
 

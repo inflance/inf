@@ -16,3 +16,13 @@ target_link_libraries(InfMeshPipeline
 )
 
 target_compile_definitions(InfMeshPipeline PRIVATE INFPIPELINE_EXPORTS)
+
+# Install
+install(TARGETS InfMeshPipeline
+  EXPORT InfMVSTargets
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(FILES InfMeshPipeline.hpp pipeline.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

@@ -14,7 +14,6 @@
 
 #include "InfCore.hpp"
 #include <vector>
-#include <span>
 
 namespace inf::pc {
 
@@ -33,13 +32,13 @@ struct PointCloud {
 
 /// @brief 统计离群点移除
 [[nodiscard]] INFPOINTCLOUD_API PointCloud statistical_outlier_removal(
-    std::span<const core::Vec3f> points,
+    const std::vector<core::Vec3f>& points,
     int k_neighbors = 20,
     double std_ratio = 2.0);
 
 /// @brief 体素下采样
 [[nodiscard]] INFPOINTCLOUD_API PointCloud voxel_downsample(
-    std::span<const core::Vec3f> points,
+    const std::vector<core::Vec3f>& points,
     float voxel_size);
 
 }  // namespace inf::pc

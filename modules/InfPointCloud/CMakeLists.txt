@@ -16,3 +16,13 @@ target_link_libraries(InfPointCloud
 )
 
 target_compile_definitions(InfPointCloud PRIVATE INFPOINTCLOUD_EXPORTS)
+
+# Install
+install(TARGETS InfPointCloud
+  EXPORT InfMVSTargets
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+install(FILES InfPointCloud.hpp point_cloud.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/InfMVS)

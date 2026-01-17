@@ -7,7 +7,7 @@ core::Result<PipelineResult> run(
     const std::filesystem::path& colmap_dir, const PipelineConfig& config) {
     // TODO: 实现完整流水线
     (void)colmap_dir; (void)config;
-    return std::unexpected(core::Error{core::ErrorCode::kUnsupportedFormat, "Not implemented"});
+    return core::unexpected(core::Error{core::ErrorCode::kUnsupportedFormat, "Not implemented"});
 }
 
 }  // namespace inf::pipeline
