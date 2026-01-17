@@ -28,12 +28,12 @@ struct PointCloud {
 
     [[nodiscard]] size_t size() const noexcept { return positions.size(); }
     [[nodiscard]] bool empty() const noexcept { return positions.empty(); }
-    [[nodiscard]] bool has_normals() const noexcept { return normals.size() == positions.size(); }
-    [[nodiscard]] bool has_colors() const noexcept { return colors.size() == positions.size(); }
-    [[nodiscard]] bool has_confidences() const noexcept { return confidences.size() == positions.size(); }
-    [[nodiscard]] bool has_scales() const noexcept { return scales.size() == positions.size(); }
-    [[nodiscard]] bool has_source_images() const noexcept { return source_images.size() == positions.size(); }
-    [[nodiscard]] bool has_visibility() const noexcept { return visible_views.size() == positions.size(); }
+    [[nodiscard]] bool has_normals() const noexcept { return !normals.empty() && normals.size() == positions.size(); }
+    [[nodiscard]] bool has_colors() const noexcept { return !colors.empty() && colors.size() == positions.size(); }
+    [[nodiscard]] bool has_confidences() const noexcept { return !confidences.empty() && confidences.size() == positions.size(); }
+    [[nodiscard]] bool has_scales() const noexcept { return !scales.empty() && scales.size() == positions.size(); }
+    [[nodiscard]] bool has_source_images() const noexcept { return !source_images.empty() && source_images.size() == positions.size(); }
+    [[nodiscard]] bool has_visibility() const noexcept { return !visible_views.empty() && visible_views.size() == positions.size(); }
     [[nodiscard]] bool is_mvs_cloud() const noexcept { return has_confidences() || has_visibility(); }
 
     INFPOINTCLOUD_API void reserve(size_t n);

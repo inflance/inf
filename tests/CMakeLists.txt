@@ -8,6 +8,7 @@ set(TESTDATA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../testdata")
 add_executable(infmvs_tests
   test_core.cpp
   test_io.cpp
+  test_pointcloud.cpp
 )
 
 target_compile_definitions(infmvs_tests

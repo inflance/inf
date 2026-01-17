@@ -43,66 +43,91 @@ std::pair<core::Vec3f, core::Vec3f> PointCloud::bounding_box() const {
 }
 
 void PointCloud::append(PointCloud&& other) {
+    const bool has_n = has_normals() && other.has_normals();
+    const bool has_c = has_colors() && other.has_colors();
+    const bool has_conf = has_confidences() && other.has_confidences();
+    const bool has_sc = has_scales() && other.has_scales();
+    const bool has_src = has_source_images() && other.has_source_images();
+    const bool has_vis = has_visibility() && other.has_visibility();
     const size_t new_size = size() + other.size();
+
     positions.reserve(new_size);
     positions.insert(positions.end(), std::make_move_iterator(other.positions.begin()), std::make_move_iterator(other.positions.end()));
 
-    if (has_normals() && other.has_normals()) {
+    if (has_n) {
         normals.reserve(new_size);
         normals.insert(normals.end(), std::make_move_iterator(other.normals.begin()), std::make_move_iterator(other.normals.end()));
-    }
-    if (has_colors() && other.has_colors()) {
+    } else { normals.clear(); }
+
+    if (has_c) {
         colors.reserve(new_size);
         colors.insert(colors.end(), std::make_move_iterator(other.colors.begin()), std::make_move_iterator(other.colors.end()));
-    }
-    if (has_confidences() && other.has_confidences()) {
+    } else { colors.clear(); }
+
+    if (has_conf) {
         confidences.reserve(new_size);
         confidences.insert(confidences.end(), std::make_move_iterator(other.confidences.begin()), std::make_move_iterator(other.confidences.end()));
-    }
-    if (has_scales() && other.has_scales()) {
+    } else { confidences.clear(); }
+
+    if (has_sc) {
         scales.reserve(new_size);
         scales.insert(scales.end(), std::make_move_iterator(other.scales.begin()), std::make_move_iterator(other.scales.end()));
-    }
-    if (has_source_images() && other.has_source_images()) {
+    } else { scales.clear(); }
+
+    if (has_src) {
         source_images.reserve(new_size);
         source_images.insert(source_images.end(), std::make_move_iterator(other.source_images.begin()), std::make_move_iterator(other.source_images.end()));
-    }
-    if (has_visibility() && other.has_visibility()) {
+    } else { source_images.clear(); }
+
+    if (has_vis) {
         visible_views.reserve(new_size);
         visible_views.insert(visible_views.end(), std::make_move_iterator(other.visible_views.begin()), std::make_move_iterator(other.visible_views.end()));
-    }
+    } else { visible_views.clear(); }
+
     other.clear();
 }
 
 void PointCloud::append(const PointCloud& other) {
+    const bool has_n = has_normals() && other.has_normals();
+    const bool has_c = has_colors() && other.has_colors();
+    const bool has_conf = has_confidences() && other.has_confidences();
+    const bool has_sc = has_scales() && other.has_scales();
+    const bool has_src = has_source_images() && other.has_source_images();
+    const bool has_vis = has_visibility() && other.has_visibility();
     const size_t new_size = size() + other.size();
+
     positions.reserve(new_size);
     positions.insert(positions.end(), other.positions.begin(), other.positions.end());
 
-    if (has_normals() && other.has_normals()) {
+    if (has_n) {
         normals.reserve(new_size);
         normals.insert(normals.end(), other.normals.begin(), other.normals.end());
-    }
-    if (has_colors() && other.has_colors()) {
+    } else { normals.clear(); }
+
+    if (has_c) {
         colors.reserve(new_size);
         colors.insert(colors.end(), other.colors.begin(), other.colors.end());
-    }
-    if (has_confidences() && other.has_confidences()) {
+    } else { colors.clear(); }
+
+    if (has_conf) {
         confidences.reserve(new_size);
         confidences.insert(confidences.end(), other.confidences.begin(), other.confidences.end());
-    }
-    if (has_scales() && other.has_scales()) {
+    } else { confidences.clear(); }
+
+    if (has_sc) {
         scales.reserve(new_size);
         scales.insert(scales.end(), other.scales.begin(), other.scales.end());
-    }
-    if (has_source_images() && other.has_source_images()) {
+    } else { scales.clear(); }
+
+    if (has_src) {
         source_images.reserve(new_size);
         source_images.insert(source_images.end(), other.source_images.begin(), other.source_images.end());
-    }
-    if (has_visibility() && other.has_visibility()) {
+    } else { source_images.clear(); }
+
+    if (has_vis) {
         visible_views.reserve(new_size);
         visible_views.insert(visible_views.end(), other.visible_views.begin(), other.visible_views.end());
-    }
+    } else { visible_views.clear(); }
 }
 
 }  // namespace inf::pc
